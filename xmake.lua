@@ -2,7 +2,7 @@ add_rules("mode.debug", "mode.release")
 
 add_includedirs("/usr/lib/jvm/ibm-java-x86_64-80/include")
 
-target("objallocrecorder")
+target("j9objrecord")
     set_kind("shared")
     add_files("src/*.c")
 

@@ -8,3 +8,9 @@ build/
 # VS code
 .vscode
 
+# self
+java_classes
+jar_test
+*.jar
+*.class
+
