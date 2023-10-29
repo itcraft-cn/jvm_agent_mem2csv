@@ -8,11 +8,10 @@ DEBUG=0
 #DEBUG=1
 CURR_DIR=$(pwd)
 
-DEBUG_BINARY_PATH=$CURR_DIR"/target/debug"
-RELEASE_BINARY_PATH=$CURR_DIR"/target/release"
+DEBUG_BINARY_PATH=$CURR_DIR"/build/linux/x86_64/debug"
+RELEASE_BINARY_PATH=$CURR_DIR"/build/linux/x86_64/release"
 
-cargo build
-cargo build --release
+xmake
 
 if [ "$DEBUG" -eq "1" ]; then
     LIB_PATH=$DEBUG_BINARY_PATH
@@ -30,5 +29,5 @@ echo normal call
 time java -cp java_classes:"$CLASSPATH" demo.A
 
 echo call with agent
-time java -agentlib:objallocrecorder -cp java_classes:"$CLASSPATH" demo.A
+time java -agentlib:j9objrecord -cp java_classes:"$CLASSPATH" demo.A
 
