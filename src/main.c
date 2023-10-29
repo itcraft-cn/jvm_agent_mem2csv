@@ -19,7 +19,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
                                     void *reserved) {
   jvmtiEnv *jvmti = NULL;
   jvmtiError error;
-  char **error_msg = malloc(1 * sizeof(char *));
+  long error_ptr = 0;
   /* Get access to JVMTI */
   (*jvm)->GetEnv(jvm, (void **)&jvmti, JVMTI_VERSION_1_0);
   jvmtiCapabilities capabilities;
@@ -29,8 +29,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
   if (error == JVMTI_ERROR_NONE) {
     printf("agent add capability success\n");
   } else {
-    (*jvmti)->GetErrorName(jvmti, error, &error_msg);
-    printf("Error: %s\n", error_msg);
+    (*jvmti)->GetErrorName(jvmti, error, (char **)&error_ptr);
+    printf("Error: %s\n", *&error_ptr);
     return JNI_ERR;
   }
   jvmtiEventCallbacks callbacks;
@@ -40,8 +40,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
   if (error == JVMTI_ERROR_NONE) {
     printf("agent add callback success\n");
   } else {
-    (*jvmti)->GetErrorName(jvmti, error, &error_msg);
-    printf("Error: %s\n", error_msg);
+    (*jvmti)->GetErrorName(jvmti, error, (char **)&error_ptr);
+    printf("Error: %s\n", *&error_ptr);
     return JNI_ERR;
   }
   error = (*jvmti)->SetEventNotificationMode(jvmti, JVMTI_ENABLE,
@@ -49,8 +49,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
   if (error == JVMTI_ERROR_NONE) {
     printf("agent add callback success\n");
   } else {
-    (*jvmti)->GetErrorName(jvmti, error, &error_msg);
-    printf("Error: %s\n", error_msg);
+    (*jvmti)->GetErrorName(jvmti, error, (char **)&error_ptr);
+    printf("Error: %s\n", *&error_ptr);
     return JNI_ERR;
   }
   printf("agent is ready\n");
