@@ -21,7 +21,7 @@ void on_obj_alloc(jvmtiEnv *jvmti_env, JNIEnv *jni_env, jthread thread,
   (*jvmti_env)
       ->GetClassSignature(jvmti_env, object_klass, (char **)&ptr1,
                           (char **)&ptr2);
-  printf("%s, %s, %s, %ld\n", thread_info.name, *&ptr1, *&ptr2, size);
+  printf("\"%s\",\"%s\",\"%s\",%ld\n", thread_info.name, *&ptr1, *&ptr2, size);
 }
 
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
