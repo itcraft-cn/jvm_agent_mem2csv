@@ -4,14 +4,20 @@ if [ -e "$HOME/.bashrc" ]; then
     source "$HOME/.bashrc"
 fi
 
-DEBUG=0
-#DEBUG=1
+#DEBUG=0
+DEBUG=1
 CURR_DIR=$(pwd)
 
 DEBUG_BINARY_PATH=$CURR_DIR"/build/linux/x86_64/debug"
 RELEASE_BINARY_PATH=$CURR_DIR"/build/linux/x86_64/release"
 
-xmake
+if xmake
+then
+    echo compile successfully
+else
+    echo compile failed
+    exit 1
+fi
 
 if [ "$DEBUG" -eq "1" ]; then
     LIB_PATH=$DEBUG_BINARY_PATH

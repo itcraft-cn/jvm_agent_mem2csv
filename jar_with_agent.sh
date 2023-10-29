@@ -1,8 +1,8 @@
 #!/bin/bash
 
 CURR_DIR=$(pwd)
-#LIB_PATH=$CURR_DIR/build/linux/x86_64/debug
-LIB_PATH=$CURR_DIR/build/linux/x86_64/release
+LIB_PATH=$CURR_DIR/build/linux/x86_64/debug
+#LIB_PATH=$CURR_DIR/build/linux/x86_64/release
 
 cd jar_test || exit 1
 
