@@ -54,25 +54,37 @@ static jthread alloc_thread(JNIEnv *jni) {
 
 void on_iter(jlong class_tag, jlong size, jlong *tag_ptr, jint length,
              void *user_data) {
-  printf("obj size:[%ld] length:[%d]\n", size, length);
+  printf("iterate obj size:[%ld] length:[%d]\n", size, length);
 }
 
-void iter_heap(jvmtiEnv *jvmti, JNIEnv *jni) {
-  printf("enter iter_heap\n");
+void on_follow(jvmtiHeapReferenceKind reference_kind,
+               const jvmtiHeapReferenceInfo *reference_info, jlong class_tag,
+               jlong referrer_class_tag, jlong size, jlong *tag_ptr,
+               jlong *referrer_tag_ptr, jint length, void *user_data) {
+  printf("follow obj size:[%ld] length:[%d]\n", size, length);
+}
+
+void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
+  printf("enter walk_heap\n");
   jvmtiError error;
   long error_ptr = 0;
   jlong ptr;
-  jvmtiHeapCallbacks callbacks;
-  memset(&callbacks, 0, sizeof(callbacks));
-  callbacks.heap_iteration_callback = &on_iter;
   error = (*jvmti)->IterateThroughHeap(jvmti, JVMTI_HEAP_FILTER_TAGGED, NULL,
-                                       &callbacks, NULL);
+                                       callbacks, NULL);
   check_jvmti_error("IterateThroughHeap");
+
+  error = (*jvmti)->FollowReferences(jvmti, JVMTI_HEAP_FILTER_TAGGED, NULL,
+                                     NULL, callbacks, NULL);
+  check_jvmti_error("FollowReferences");
 }
 
 void agent_proc(jvmtiEnv *jvmti, JNIEnv *jni, void *p) {
+  jvmtiHeapCallbacks callbacks;
+  memset(&callbacks, 0, sizeof(callbacks));
+  callbacks.heap_iteration_callback = &on_iter;
+  callbacks.heap_reference_callback = &on_follow;
   while (ACTIVE) {
-    iter_heap(jvmti, jni);
+    walk_heap(jvmti, jni, &callbacks);
     sleep(1);
   }
   printf("quit thread\n");
