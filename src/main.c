@@ -7,6 +7,8 @@ static pid_t JVM_PID;
 
 static long CSV_FILE_WALKER = 1;
 
+static int SLEEP_TIME = 10 * 60;
+
 const int MAX_FILE_NAME_LEN = 256;
 
 #define check_jvmti_error(action_info)                                         \
@@ -134,10 +136,14 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
                                     void *reserved) {
   JVM_PID = getpid();
   printf("agent will attach the jvm[pid: %d]\n", JVM_PID);
-  jvmtiEnv *jvmti = NULL;
+  if (options != NULL && strlen(options) > 0) {
+    printf("the output interval: %ss\n", options);
+    int sleep_time = atoi(options);
+    SLEEP_TIME = sleep_time * 60;
+  }
   jvmtiError error;
   long error_ptr = 0;
-  /* Get access to JVMTI */
+  jvmtiEnv *jvmti = NULL;
   (*jvm)->GetEnv(jvm, (void **)&jvmti, JVMTI_VERSION_1_0);
   jvmtiCapabilities capabilities;
   memset(&capabilities, 0, sizeof(capabilities));
