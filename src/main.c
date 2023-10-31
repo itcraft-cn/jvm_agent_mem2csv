@@ -56,18 +56,49 @@ static jthread alloc_thread(JNIEnv *jni) {
 
 void on_iter(jlong class_tag, jlong size, jlong *tag_ptr, jint length,
              void *user_data) {
-  printf("iterate: tag:[%ld] obj size:[%ld] length:[%d]\n", class_tag, size,
-         length);
+  int *sum = (int *)user_data;
+  (*sum) += size;
+}
+
+void output(jvmtiEnv *jvmti, jclass clazz, jlong size) {
+  jvmtiError error;
+  long error_ptr = 0;
+  char *sig;
+  char *gsig;
+  error = (*jvmti)->GetClassSignature(jvmti, clazz, &sig, &gsig);
+  check_jvmti_error("GetClassSignature");
+  if (gsig == NULL) {
+    printf("Class: %s, size: %d\n", sig, size);
+    error = (*jvmti)->Deallocate(jvmti, (unsigned char *)sig);
+    check_jvmti_error("Deallocate");
+  } else {
+    printf("Class: %s<%s>, size: %ld\n", sig, gsig, size);
+    error = (*jvmti)->Deallocate(jvmti, (unsigned char *)sig);
+    check_jvmti_error("Deallocate");
+    error = (*jvmti)->Deallocate(jvmti, (unsigned char *)gsig);
+    check_jvmti_error("Deallocate");
+  }
 }
 
 void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
-  printf("enter walk_heap\n");
   jvmtiError error;
   long error_ptr = 0;
-  jlong ptr;
-  error = (*jvmti)->IterateThroughHeap(jvmti, JVMTI_HEAP_FILTER_CLASS_UNTAGGED,
-                                       NULL, callbacks, NULL);
-  check_jvmti_error("IterateThroughHeap");
+  jint number;
+  jclass *classes;
+  error = (*jvmti)->GetLoadedClasses(jvmti, &number, &classes);
+  check_jvmti_error("GetLoadedClasses");
+  for (int i = 0; i < number; i++) {
+    jlong class_sum_size = 0;
+    error =
+        (*jvmti)->IterateThroughHeap(jvmti, JVMTI_HEAP_FILTER_CLASS_TAGGED,
+                                     classes[i], callbacks, &class_sum_size);
+    check_jvmti_error("IterateThroughHeap");
+    if (class_sum_size > 0) {
+      output(jvmti, classes[i], class_sum_size);
+    }
+  }
+  error = (*jvmti)->Deallocate(jvmti, (unsigned char *)classes);
+  check_jvmti_error("Deallocate");
 }
 
 void agent_proc(jvmtiEnv *jvmti, JNIEnv *jni, void *p) {
@@ -92,26 +123,6 @@ void on_vm_init(jvmtiEnv *jvmti, JNIEnv *jni, jthread thread) {
   ACTIVE = 1;
 }
 
-long inc() {
-  int v1 = TAG_PART1;
-  int v2 = TAG_PART2;
-  if (v2 == 1000000) {
-    TAG_PART1 = v1 + 1;
-    TAG_PART2 = 0;
-  } else {
-    TAG_PART2 = v2 + 1;
-  }
-  return v1 * 1000000 + v2;
-}
-
-void on_class_load(jvmtiEnv *jvmti, JNIEnv *jni, jthread thread, jclass klass) {
-  jvmtiError error;
-  long error_ptr = 0;
-  jlong tag = ((long)thread) + inc();
-  error = (*jvmti)->SetTag(jvmti, klass, tag);
-  check_jvmti_error("set tag");
-}
-
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
                                     void *reserved) {
   jvmtiEnv *jvmti = NULL;
@@ -122,17 +133,15 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
   jvmtiCapabilities capabilities;
   memset(&capabilities, 0, sizeof(capabilities));
   capabilities.can_tag_objects = 1;
-  capabilities.can_generate_all_class_hook_events = 1;
   error = (*jvmti)->AddCapabilities(jvmti, &capabilities);
   check_jvmti_error("agent add capability");
   jvmtiEventCallbacks callbacks;
   memset(&callbacks, 0, sizeof(callbacks));
   callbacks.VMInit = &on_vm_init;
-  callbacks.ClassLoad = &on_class_load;
   error = (*jvmti)->SetEventCallbacks(jvmti, &callbacks, sizeof(callbacks));
   check_jvmti_error("agent add callback");
-  jvmtiEvent events[] = {JVMTI_EVENT_VM_INIT, JVMTI_EVENT_CLASS_LOAD};
-  reg_event(jvmti, events, 2);
+  jvmtiEvent events[] = {JVMTI_EVENT_VM_INIT};
+  reg_event(jvmti, events, 1);
   printf("agent is ready\n");
   return JNI_OK;
 }

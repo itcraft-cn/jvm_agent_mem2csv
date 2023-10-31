@@ -12,5 +12,10 @@ public class A {
         sum.set(i & j);
       }
     }
+    try {
+      Thread.sleep(60000);
+    } catch (InterruptedException e) {
+      //
+    }
   }
 }
