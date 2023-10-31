@@ -13,4 +13,8 @@ java_classes
 jar_test
 *.jar
 *.class
+core.*
+javacore.*
+jitdump.*
+Snap.*
 
