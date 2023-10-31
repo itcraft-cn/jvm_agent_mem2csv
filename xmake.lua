@@ -2,7 +2,7 @@ add_rules("mode.debug", "mode.release")
 
 add_includedirs("/usr/lib/jvm/ibm-java-x86_64-80/include")
 
-target("j9objrecord")
+target("j9mem2csv")
     set_kind("shared")
     add_files("src/*.c")
 

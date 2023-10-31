@@ -16,9 +16,9 @@ echo normal call
 time java $JAVA_OPTS -jar tiny-rules-sample.jar
 
 echo call with agent, debug
-time LD_LIBRARY_PATH=$DEBUG_LIB_PATH:$OLD_LD_PATH java $JAVA_OPTS -agentlib:j9objrecord=3 -jar tiny-rules-sample.jar
+time LD_LIBRARY_PATH=$DEBUG_LIB_PATH:$OLD_LD_PATH java $JAVA_OPTS -agentlib:j9mem2csv=3 -jar tiny-rules-sample.jar
 
 echo call with agent, debug
-time LD_LIBRARY_PATH=$RELEASE_LIB_PATH:$OLD_LD_PATH java $JAVA_OPTS -agentlib:j9objrecord=3 -jar tiny-rules-sample.jar
+time LD_LIBRARY_PATH=$RELEASE_LIB_PATH:$OLD_LD_PATH java $JAVA_OPTS -agentlib:j9mem2csv=3 -jar tiny-rules-sample.jar
 
-#time valgrind java $JAVA_OPTS -agentlib:j9objrecord -jar tiny-rules-sample.jar
+#time valgrind java $JAVA_OPTS -agentlib:j9mem2csv -jar tiny-rules-sample.jar

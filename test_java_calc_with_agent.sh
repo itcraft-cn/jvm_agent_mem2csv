@@ -36,7 +36,7 @@ javac -sourcepath java_src -cp java_classes:"$CLASSPATH" -d java_classes java_sr
 OLD_LD_PATH=$LD_LIBRARY_PATH
 
 echo call with agent, debug
-time LD_LIBRARY_PATH=$DEBUG_BINARY_PATH:$OLD_LD_PATH java -agentlib:j9objrecord=1 -cp java_classes:"$CLASSPATH" calc.A
+time LD_LIBRARY_PATH=$DEBUG_BINARY_PATH:$OLD_LD_PATH java -agentlib:j9mem2csv=1 -cp java_classes:"$CLASSPATH" calc.A
 
 echo call with agent, release
-time LD_LIBRARY_PATH=$RELEASE_BINARY_PATH:$OLD_LD_PATH java -agentlib:j9objrecord=1 -cp java_classes:"$CLASSPATH" calc.A
+time LD_LIBRARY_PATH=$RELEASE_BINARY_PATH:$OLD_LD_PATH java -agentlib:j9mem2csv=1 -cp java_classes:"$CLASSPATH" calc.A
