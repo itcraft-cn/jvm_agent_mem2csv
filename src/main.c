@@ -9,6 +9,9 @@ static long CSV_FILE_WALKER = 1;
 
 static int SLEEP_TIME = 10 * 60;
 
+const int BUF_SIZE = 65536;
+static char BUF[65536];
+
 const int MAX_FILE_NAME_LEN = 256;
 
 #define check_jvmti_error(action_info)                                         \
@@ -64,7 +67,7 @@ void on_iter(jlong class_tag, jlong size, jlong *tag_ptr, jint length,
   (*sum) += size;
 }
 
-void output(FILE *fd, jvmtiEnv *jvmti, jclass clazz, jlong size) {
+void output(int offset, jvmtiEnv *jvmti, jclass clazz, jlong size) {
   jvmtiError error;
   long error_ptr = 0;
   char *sig;
@@ -72,16 +75,21 @@ void output(FILE *fd, jvmtiEnv *jvmti, jclass clazz, jlong size) {
   error = (*jvmti)->GetClassSignature(jvmti, clazz, &sig, &gsig);
   check_jvmti_error("GetClassSignature");
   if (gsig == NULL) {
-    fprintf(fd, "\"%s\",%ld\n", sig, size);
+    sprintf(BUF + offset, "\"%s\",%ld\n", sig, size);
     error = (*jvmti)->Deallocate(jvmti, (unsigned char *)sig);
     check_jvmti_error("Deallocate");
   } else {
-    fprintf(fd, "\"%s<%s>\",%ld\n", sig, gsig, size);
+    sprintf(BUF + offset, "\"%s<%s>\",%ld\n", sig, gsig, size);
     error = (*jvmti)->Deallocate(jvmti, (unsigned char *)sig);
     check_jvmti_error("Deallocate");
     error = (*jvmti)->Deallocate(jvmti, (unsigned char *)gsig);
     check_jvmti_error("Deallocate");
   }
+}
+
+void reset_buf(int *offset) {
+  memset(BUF, 0, BUF_SIZE);
+  *offset = 0;
 }
 
 void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
@@ -91,6 +99,8 @@ void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
   jclass *classes;
   error = (*jvmti)->GetLoadedClasses(jvmti, &number, &classes);
   check_jvmti_error("GetLoadedClasses");
+  int offset = 0;
+  reset_buf(&offset);
   char filename[MAX_FILE_NAME_LEN];
   sprintf(filename, "%s_%ld_%06d.csv", "/tmp/jvm_objects", JVM_PID,
           CSV_FILE_WALKER++);
@@ -102,8 +112,16 @@ void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
                                      classes[i], callbacks, &class_sum_size);
     check_jvmti_error("IterateThroughHeap");
     if (class_sum_size > 0) {
-      output(fd, jvmti, classes[i], class_sum_size);
+      output(offset, jvmti, classes[i], class_sum_size);
+      offset = strlen(BUF);
+      if (offset + 1024 > BUF_SIZE) {
+        fwrite(BUF, offset, 1, fd);
+        reset_buf(&offset);
+      }
     }
+  }
+  if (offset > 0) {
+    fwrite(BUF, offset, 1, fd);
   }
   fclose(fd);
   error = (*jvmti)->Deallocate(jvmti, (unsigned char *)classes);
