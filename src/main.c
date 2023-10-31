@@ -1,11 +1,13 @@
 #include <ibmjvmti.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-volatile sig_atomic_t TAG_PART1 = 0;
-volatile sig_atomic_t TAG_PART2 = 0;
+static pid_t JVM_PID;
+
+static long CSV_FILE_WALKER = 1;
+
+const int MAX_FILE_NAME_LEN = 256;
 
 #define check_jvmti_error(action_info)                                         \
   if (error != JVMTI_ERROR_NONE) {                                             \
@@ -60,7 +62,7 @@ void on_iter(jlong class_tag, jlong size, jlong *tag_ptr, jint length,
   (*sum) += size;
 }
 
-void output(jvmtiEnv *jvmti, jclass clazz, jlong size) {
+void output(FILE *fd, jvmtiEnv *jvmti, jclass clazz, jlong size) {
   jvmtiError error;
   long error_ptr = 0;
   char *sig;
@@ -68,11 +70,11 @@ void output(jvmtiEnv *jvmti, jclass clazz, jlong size) {
   error = (*jvmti)->GetClassSignature(jvmti, clazz, &sig, &gsig);
   check_jvmti_error("GetClassSignature");
   if (gsig == NULL) {
-    printf("Class: %s, size: %d\n", sig, size);
+    fprintf(fd, "\"%s\",%ld\n", sig, size);
     error = (*jvmti)->Deallocate(jvmti, (unsigned char *)sig);
     check_jvmti_error("Deallocate");
   } else {
-    printf("Class: %s<%s>, size: %ld\n", sig, gsig, size);
+    fprintf(fd, "\"%s<%s>\",%ld\n", sig, gsig, size);
     error = (*jvmti)->Deallocate(jvmti, (unsigned char *)sig);
     check_jvmti_error("Deallocate");
     error = (*jvmti)->Deallocate(jvmti, (unsigned char *)gsig);
@@ -87,6 +89,10 @@ void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
   jclass *classes;
   error = (*jvmti)->GetLoadedClasses(jvmti, &number, &classes);
   check_jvmti_error("GetLoadedClasses");
+  char filename[MAX_FILE_NAME_LEN];
+  sprintf(filename, "%s_%ld_%06d.csv", "/tmp/jvm_objects", JVM_PID,
+          CSV_FILE_WALKER++);
+  FILE *fd = fopen(filename, "w+");
   for (int i = 0; i < number; i++) {
     jlong class_sum_size = 0;
     error =
@@ -94,9 +100,10 @@ void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
                                      classes[i], callbacks, &class_sum_size);
     check_jvmti_error("IterateThroughHeap");
     if (class_sum_size > 0) {
-      output(jvmti, classes[i], class_sum_size);
+      output(fd, jvmti, classes[i], class_sum_size);
     }
   }
+  fclose(fd);
   error = (*jvmti)->Deallocate(jvmti, (unsigned char *)classes);
   check_jvmti_error("Deallocate");
 }
@@ -125,6 +132,8 @@ void on_vm_init(jvmtiEnv *jvmti, JNIEnv *jni, jthread thread) {
 
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
                                     void *reserved) {
+  JVM_PID = getpid();
+  printf("agent will attach the jvm[pid: %d]\n", JVM_PID);
   jvmtiEnv *jvmti = NULL;
   jvmtiError error;
   long error_ptr = 0;
@@ -146,7 +155,11 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
   return JNI_OK;
 }
 
-JNIEXPORT void JNICALL Agent_OnUnload(JavaVM *vm) { printf("agent is off\n"); }
+JNIEXPORT void JNICALL Agent_OnUnload(JavaVM *vm) {
+  ACTIVE = 0;
+  sleep(3);
+  printf("agent is off\n");
+}
 
 JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM *vm, char *options,
                                       void *reserved) {
