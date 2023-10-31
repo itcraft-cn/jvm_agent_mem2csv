@@ -23,6 +23,11 @@ public class A {
             B.getResult(COMPLEX_EXPRESSION, C.class, DD);
             count++;
         }
+        try {
+            Thread.sleep(60000);
+        } catch (InterruptedException e) {
+            //
+        }
     }
 
 }

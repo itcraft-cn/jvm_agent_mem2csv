@@ -28,8 +28,8 @@ export PATH="$JAVA_HOME/bin":"$PATH"
 
 javac -sourcepath java_src -d java_classes java_src/demo/A.java
 
-echo normal call
-time java -cp java_classes:"$CLASSPATH" demo.A
+#echo normal call
+#time java -cp java_classes:"$CLASSPATH" demo.A
 
 OLD_LD_PATH=$LD_LIBRARY_PATH
 

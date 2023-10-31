@@ -30,8 +30,8 @@ javac -sourcepath java_src -cp java_classes:"$CLASSPATH" -d java_classes java_sr
 javac -sourcepath java_src -cp java_classes:"$CLASSPATH" -d java_classes java_src/calc/B.java
 javac -sourcepath java_src -cp java_classes:"$CLASSPATH" -d java_classes java_src/calc/C.java
 
-echo normal call
-time java -cp java_classes:"$CLASSPATH" calc.A
+#echo normal call
+#time java -cp java_classes:"$CLASSPATH" calc.A
 
 OLD_LD_PATH=$LD_LIBRARY_PATH
 
