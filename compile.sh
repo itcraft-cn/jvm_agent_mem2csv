@@ -14,3 +14,7 @@ function compile(){
 compile debug
 compile release
 
+# compile/link by gcc direct
+#gcc -c -O3 -fPIC -I -o main.o main.c
+#gcc -shared -fPIC -o libx.so main.o
+
