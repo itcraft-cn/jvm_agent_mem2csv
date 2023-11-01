@@ -1,4 +1,8 @@
+#ifdef J9
 #include <ibmjvmti.h>
+#else
+#include <jvmti.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
