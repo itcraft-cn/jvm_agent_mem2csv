@@ -7,17 +7,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-static pid_t JVM_PID;
-
-static long CSV_FILE_WALKER = 1;
-
-static int SLEEP_TIME = 10 * 60;
-
-const int BUF_SIZE = 65536;
-static char BUF[65536];
-
-const int MAX_FILE_NAME_LEN = 256;
-
 #define check_jvmti_error(action_info)                                         \
   if (error != JVMTI_ERROR_NONE) {                                             \
     (*jvmti)->GetErrorName(jvmti, error, error_ptr);                           \
@@ -36,6 +25,16 @@ const int MAX_FILE_NAME_LEN = 256;
   if (target == NULL) {                                                        \
     fatal_error(desc);                                                         \
   }
+
+static pid_t JVM_PID;
+
+static int SLEEP_TIME = 10 * 60;
+
+const int BUF_SIZE = 65536;
+static char BUF[65536];
+
+static long CSV_FILE_WALKER = 1;
+const int MAX_FILE_NAME_LEN = 256;
 
 static int ACTIVE = 0;
 
