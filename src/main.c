@@ -154,10 +154,12 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
                                     void *reserved) {
   JVM_PID = getpid();
   printf("agent will attach the jvm[pid: %d]\n", JVM_PID);
-  if (options != NULL && strlen(options) > 0) {
+  if (options != NULL && strlen(options) == 0) {
     printf("the output interval: %ss\n", options);
     int sleep_time = atoi(options);
-    SLEEP_TIME = sleep_time * 60;
+    SLEEP_TIME = sleep_time;
+  } else {
+    printf("the output interval, use the default: %ds\n", SLEEP_TIME);
   }
   jvmtiError error;
   long error_ptr = 0;

@@ -5,6 +5,7 @@ add_includedirs("/usr/lib/jvm/ibm-java-x86_64-80/include")
 target("j9mem2csv")
     set_kind("shared")
     add_files("src/*.c")
+    set_optimize("fastest")
 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io
