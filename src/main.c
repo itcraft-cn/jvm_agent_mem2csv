@@ -20,8 +20,8 @@ const int MAX_FILE_NAME_LEN = 256;
 
 #define check_jvmti_error(action_info)                                         \
   if (error != JVMTI_ERROR_NONE) {                                             \
-    (*jvmti)->GetErrorName(jvmti, error, (char **)&error_ptr);                 \
-    printf("%s, failed: %s\n", action_info, *&error_ptr);                      \
+    (*jvmti)->GetErrorName(jvmti, error, error_ptr);                           \
+    printf("%s, failed: %s\n", action_info, error_ptr);                        \
     return JNI_ERR;                                                            \
   }
 
@@ -73,7 +73,7 @@ void on_iter(jlong class_tag, jlong size, jlong *tag_ptr, jint length,
 
 void output(int offset, jvmtiEnv *jvmti, jclass clazz, jlong size) {
   jvmtiError error;
-  long error_ptr = 0;
+  char *error_ptr;
   char *sig;
   char *gsig;
   error = (*jvmti)->GetClassSignature(jvmti, clazz, &sig, &gsig);
@@ -98,7 +98,7 @@ void reset_buf(int *offset) {
 
 void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
   jvmtiError error;
-  long error_ptr = 0;
+  char *error_ptr;
   jint number;
   jclass *classes;
   error = (*jvmti)->GetLoadedClasses(jvmti, &number, &classes);
@@ -147,7 +147,7 @@ void agent_proc(jvmtiEnv *jvmti, JNIEnv *jni, void *p) {
 void on_vm_init(jvmtiEnv *jvmti, JNIEnv *jni, jthread thread) {
   jthread agent_thread = alloc_thread(jni);
   jvmtiError error;
-  long error_ptr = 0;
+  char *error_ptr;
   error = (*jvmti)->RunAgentThread(jvmti, agent_thread, &agent_proc, NULL,
                                    JVMTI_THREAD_MAX_PRIORITY);
   check_jvmti_error("agent start new thread");
@@ -166,7 +166,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
     printf("the output interval, use the default: %ds\n", SLEEP_TIME);
   }
   jvmtiError error;
-  long error_ptr = 0;
+  char *error_ptr;
   jvmtiEnv *jvmti = NULL;
   (*jvm)->GetEnv(jvm, (void **)&jvmti, JVMTI_VERSION_1_0);
   jvmtiCapabilities capabilities;
