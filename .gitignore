@@ -9,6 +9,7 @@ build/
 .vscode
 
 # self
+java_src
 java_classes
 jar_test
 *.so
@@ -18,3 +19,4 @@ core.*
 javacore.*
 jitdump.*
 Snap.*
+*_with_agent.sh
