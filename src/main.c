@@ -5,6 +5,7 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #define check_jvmti_error(action_info)                                         \
@@ -28,8 +29,6 @@
 
 static pid_t JVM_PID;
 
-static int SLEEP_TIME = 10 * 60;
-
 const int BUF_SIZE = 65536;
 static char BUF[65536];
 
@@ -37,6 +36,29 @@ static long CSV_FILE_WALKER = 1;
 const int MAX_FILE_NAME_LEN = 256;
 
 static int ACTIVE = 0;
+
+const char *OPTION_HELP = "help";
+const char *OPTION_SCAN_INTERVAL = "interval=";
+const char *OPTION_START_IDLE_TIME = "idle=";
+const char *OPTION_OUTPUT_DIR = "output=";
+
+const int OPTION_HELP_LEN = 4;
+const int OPTION_SCAN_INTERVAL_LEN = 9;
+const int OPTION_START_IDLE_TIME_LEN = 5;
+const int OPTION_OUTPUT_DIR_LEN = 7;
+
+const int DEFAULT_SCAN_INTERVAL = 10 * 60;
+const int DEFAULT_IDLE_TIME = 20 * 60;
+const char *DEFAULT_OUTPUT_DIR = "/tmp";
+
+typedef struct {
+  int scan_interval;
+  int start_idle_time;
+  int setup_output_dir;
+  char *output_dir;
+} AgentCfg;
+
+static AgentCfg cfg;
 
 /* Send message to stderr or whatever the error output location is and exit  */
 void fatal_error(const char *format, ...) {
@@ -105,7 +127,7 @@ void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
   int offset = 0;
   reset_buf(&offset);
   char filename[MAX_FILE_NAME_LEN];
-  sprintf(filename, "%s_%ld_%06d.csv", "/tmp/jvm_objects", JVM_PID,
+  sprintf(filename, "%s/jvm_objects_%ld_%06d.csv", cfg.output_dir, JVM_PID,
           CSV_FILE_WALKER++);
   FILE *fd = fopen(filename, "w+");
   for (int i = 0; i < number; i++) {
@@ -132,13 +154,13 @@ void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
 }
 
 void agent_proc(jvmtiEnv *jvmti, JNIEnv *jni, void *p) {
-  sleep(1);
+  sleep(cfg.start_idle_time);
   jvmtiHeapCallbacks callbacks;
   memset(&callbacks, 0, sizeof(callbacks));
   callbacks.heap_iteration_callback = &on_iter;
   while (ACTIVE) {
     walk_heap(jvmti, jni, &callbacks);
-    sleep(1);
+    sleep(cfg.scan_interval);
   }
   printf("quit thread\n");
 }
@@ -153,17 +175,90 @@ void on_vm_init(jvmtiEnv *jvmti, JNIEnv *jni, jthread thread) {
   ACTIVE = 1;
 }
 
+void print_help() {
+#ifdef J9
+  printf("usage: java -agentlib:j9mem2csv=<options>\n");
+#else
+  printf("usage:\t\tjava -agentlib:hsmem2csv=<options>\n");
+#endif
+  printf("options:\n");
+  printf("\t\thelp\t\t"
+         "print this message\n");
+  printf("\t\tinterval\t"
+         "the interval between two scan actions\n");
+  printf("\t\tidle\t\t"
+         "the idle time before the first scan\n");
+  printf("\t\toutput\t\t"
+         "the directory for the output csv files\n");
+  printf("example:\tjava -agentlib:hsmem2csv=help\n");
+  printf("example:\tjava "
+         "-agentlib:hsmem2csv=interval=600,idle=1200,output=/tmp\n");
+}
+
+int parse_int(const char *ptr, int len) {
+  char *p = (char *)malloc(len);
+  memcpy(p, ptr, len);
+  int val = atoi(p);
+  free(p);
+  return val;
+}
+
+char *parse_str(const char *ptr, int len) {
+  char *p = (char *)malloc(len);
+  memcpy(p, ptr, len);
+  return p;
+}
+
+void parse(const char *options, int len) {
+  int offset = 0;
+  int last_idx = len - 1;
+  for (int i = 0; i < len; i++) {
+    printf("%i\n", options[i]);
+    if (options[i] == ',' || i == last_idx) {
+      if (strncmp(OPTION_HELP, options + offset, OPTION_HELP_LEN) == 0) {
+        print_help();
+        exit(1);
+      } else if (strncmp(OPTION_SCAN_INTERVAL, options + offset,
+                         OPTION_SCAN_INTERVAL_LEN) == 0) {
+        cfg.scan_interval =
+            parse_int(options + offset + OPTION_SCAN_INTERVAL_LEN, i - offset);
+        offset = i + 1;
+      } else if (strncmp(OPTION_START_IDLE_TIME, options + offset,
+                         OPTION_START_IDLE_TIME_LEN) == 0) {
+        cfg.start_idle_time = parse_int(
+            options + offset + OPTION_START_IDLE_TIME_LEN, i - offset);
+        offset = i + 1;
+      } else if (strncmp(OPTION_OUTPUT_DIR, options + offset,
+                         OPTION_OUTPUT_DIR_LEN) == 0) {
+        cfg.setup_output_dir = 1;
+        cfg.output_dir =
+            parse_str(options + offset + OPTION_OUTPUT_DIR_LEN, i - offset);
+        offset = i + 1;
+      }
+    }
+  }
+}
+
+void parse_options(char *options) {
+  memset(&cfg, 0, sizeof(AgentCfg));
+  cfg.scan_interval = DEFAULT_SCAN_INTERVAL;
+  cfg.start_idle_time = DEFAULT_IDLE_TIME;
+  cfg.output_dir = DEFAULT_OUTPUT_DIR;
+  if (options != NULL) {
+    int len = strlen(options);
+    if (len > 0) {
+      parse(options, len);
+    }
+  }
+  printf("will use cfg: scan_interval=%d, start_idle_time=%d, output_dir=%s\n",
+         cfg.scan_interval, cfg.start_idle_time, cfg.output_dir);
+}
+
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
                                     void *reserved) {
   JVM_PID = getpid();
   printf("agent will attach the jvm[pid: %d]\n", JVM_PID);
-  if (options != NULL && strlen(options) == 0) {
-    printf("the output interval: %ss\n", options);
-    int sleep_time = atoi(options);
-    SLEEP_TIME = sleep_time;
-  } else {
-    printf("the output interval, use the default: %ds\n", SLEEP_TIME);
-  }
+  parse_options(options);
   jvmtiError error;
   char *error_ptr;
   jvmtiEnv *jvmti = NULL;
@@ -187,12 +282,13 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
 JNIEXPORT void JNICALL Agent_OnUnload(JavaVM *vm) {
   ACTIVE = 0;
   sleep(3);
+  if (cfg.setup_output_dir == 1) {
+    free(cfg.output_dir);
+  }
   printf("agent is off\n");
 }
 
 JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM *vm, char *options,
                                       void *reserved) {
-  ACTIVE = 0;
-  sleep(3);
   return JNI_OK;
 }
