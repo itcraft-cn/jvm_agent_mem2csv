@@ -11,10 +11,10 @@ build/
 # self
 java_classes
 jar_test
+*.so
 *.jar
 *.class
 core.*
 javacore.*
 jitdump.*
 Snap.*
-
