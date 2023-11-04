@@ -8,18 +8,25 @@
 #include <string.h>
 #include <unistd.h>
 
-#define check_jvmti_error(action_info)                                         \
+#define check_jvmti_error_ret_int(action_info)                                 \
   if (error != JVMTI_ERROR_NONE) {                                             \
-    (*jvmti)->GetErrorName(jvmti, error, error_ptr);                           \
+    (*jvmti)->GetErrorName(jvmti, error, &error_ptr);                          \
     printf("%s, failed: %s\n", action_info, error_ptr);                        \
     return JNI_ERR;                                                            \
+  }
+
+#define check_jvmti_error_ret(action_info)                                     \
+  if (error != JVMTI_ERROR_NONE) {                                             \
+    (*jvmti)->GetErrorName(jvmti, error, &error_ptr);                          \
+    printf("%s, failed: %s\n", action_info, error_ptr);                        \
+    return;                                                                    \
   }
 
 #define reg_event(jvmti, events, n)                                            \
   for (int i = 0; i < n; i++) {                                                \
     error = (*jvmti)->SetEventNotificationMode(jvmti, JVMTI_ENABLE, events[i], \
                                                NULL);                          \
-    check_jvmti_error("agent add notification");                               \
+    check_jvmti_error_ret_int("agent add notification");                       \
   }
 
 #define check_not_null(target, desc)                                           \
@@ -86,10 +93,11 @@ static jthread alloc_thread(JNIEnv *jni) {
   return thread;
 }
 
-void on_iter(jlong class_tag, jlong size, jlong *tag_ptr, jint length,
-             void *user_data) {
+int on_iter(jlong class_tag, jlong size, jlong *tag_ptr, jint length,
+            void *user_data) {
   int *sum = (int *)user_data;
   (*sum) += size;
+  return JVMTI_VISIT_OBJECTS;
 }
 
 void output(int offset, jvmtiEnv *jvmti, jclass clazz, jlong size) {
@@ -98,17 +106,17 @@ void output(int offset, jvmtiEnv *jvmti, jclass clazz, jlong size) {
   char *sig;
   char *gsig;
   error = (*jvmti)->GetClassSignature(jvmti, clazz, &sig, &gsig);
-  check_jvmti_error("GetClassSignature");
+  check_jvmti_error_ret("GetClassSignature");
   if (gsig == NULL) {
-    sprintf(BUF + offset, "\"%s\",%ld\n", sig, size);
+    sprintf(BUF + offset, "\"%s\",%lld\n", sig, size);
     error = (*jvmti)->Deallocate(jvmti, (unsigned char *)sig);
-    check_jvmti_error("Deallocate");
+    check_jvmti_error_ret("Deallocate");
   } else {
-    sprintf(BUF + offset, "\"%s<%s>\",%ld\n", sig, gsig, size);
+    sprintf(BUF + offset, "\"%s<%s>\",%lld\n", sig, gsig, size);
     error = (*jvmti)->Deallocate(jvmti, (unsigned char *)sig);
-    check_jvmti_error("Deallocate");
+    check_jvmti_error_ret("Deallocate");
     error = (*jvmti)->Deallocate(jvmti, (unsigned char *)gsig);
-    check_jvmti_error("Deallocate");
+    check_jvmti_error_ret("Deallocate");
   }
 }
 
@@ -123,11 +131,11 @@ void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
   jint number;
   jclass *classes;
   error = (*jvmti)->GetLoadedClasses(jvmti, &number, &classes);
-  check_jvmti_error("GetLoadedClasses");
+  check_jvmti_error_ret("GetLoadedClasses");
   int offset = 0;
   reset_buf(&offset);
   char filename[MAX_FILE_NAME_LEN];
-  sprintf(filename, "%s/jvm_objects_%ld_%06d.csv", cfg.output_dir, JVM_PID,
+  sprintf(filename, "%s/jvm_objects_%d_%06ld.csv", cfg.output_dir, JVM_PID,
           CSV_FILE_WALKER++);
   FILE *fd = fopen(filename, "w+");
   for (int i = 0; i < number; i++) {
@@ -135,7 +143,7 @@ void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
     error =
         (*jvmti)->IterateThroughHeap(jvmti, JVMTI_HEAP_FILTER_CLASS_TAGGED,
                                      classes[i], callbacks, &class_sum_size);
-    check_jvmti_error("IterateThroughHeap");
+    check_jvmti_error_ret("IterateThroughHeap");
     if (class_sum_size > 0) {
       output(offset, jvmti, classes[i], class_sum_size);
       offset = strlen(BUF);
@@ -150,7 +158,7 @@ void walk_heap(jvmtiEnv *jvmti, JNIEnv *jni, jvmtiHeapCallbacks *callbacks) {
   }
   fclose(fd);
   error = (*jvmti)->Deallocate(jvmti, (unsigned char *)classes);
-  check_jvmti_error("Deallocate");
+  check_jvmti_error_ret("Deallocate");
 }
 
 void agent_proc(jvmtiEnv *jvmti, JNIEnv *jni, void *p) {
@@ -171,7 +179,7 @@ void on_vm_init(jvmtiEnv *jvmti, JNIEnv *jni, jthread thread) {
   char *error_ptr;
   error = (*jvmti)->RunAgentThread(jvmti, agent_thread, &agent_proc, NULL,
                                    JVMTI_THREAD_MAX_PRIORITY);
-  check_jvmti_error("agent start new thread");
+  check_jvmti_error_ret("agent start new thread");
   ACTIVE = 1;
 }
 
@@ -243,7 +251,7 @@ void parse_options(char *options) {
   memset(&cfg, 0, sizeof(AgentCfg));
   cfg.scan_interval = DEFAULT_SCAN_INTERVAL;
   cfg.start_idle_time = DEFAULT_IDLE_TIME;
-  cfg.output_dir = DEFAULT_OUTPUT_DIR;
+  cfg.output_dir = (char *)DEFAULT_OUTPUT_DIR;
   if (options != NULL) {
     int len = strlen(options);
     if (len > 0) {
@@ -267,12 +275,12 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options,
   memset(&capabilities, 0, sizeof(capabilities));
   capabilities.can_tag_objects = 1;
   error = (*jvmti)->AddCapabilities(jvmti, &capabilities);
-  check_jvmti_error("agent add capability");
+  check_jvmti_error_ret_int("agent add capability");
   jvmtiEventCallbacks callbacks;
   memset(&callbacks, 0, sizeof(callbacks));
   callbacks.VMInit = &on_vm_init;
   error = (*jvmti)->SetEventCallbacks(jvmti, &callbacks, sizeof(callbacks));
-  check_jvmti_error("agent add callback");
+  check_jvmti_error_ret_int("agent add callback");
   jvmtiEvent events[] = {JVMTI_EVENT_VM_INIT};
   reg_event(jvmti, events, 1);
   printf("agent is ready\n");

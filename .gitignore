@@ -22,3 +22,5 @@ javacore.*
 jitdump.*
 Snap.*
 *_with_agent.sh
+compile_commands.json
+
