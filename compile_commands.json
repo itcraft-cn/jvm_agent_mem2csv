@@ -1,0 +1,37 @@
+[
+  {
+    "directory": "/home/helly/code/c_cpp/j9_obj_alloc_recorder",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-m64",
+      "-fPIC",
+      "-O3",
+      "-I/usr/lib/jvm/ibm-java-x86_64-80/include",
+      "-I/usr/lib/jvm/ibm-java-x86_64-80/include/linux",
+      "-DJ9",
+      "-DNDEBUG",
+      "-o",
+      "build/.objs/j9mem2csv/linux/x86_64/release/src/main.j9.c.o",
+      "src/main.c"
+    ],
+    "file": "src/main.c"
+  },
+  {
+    "directory": "/home/helly/code/c_cpp/j9_obj_alloc_recorder",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-m64",
+      "-fPIC",
+      "-O3",
+      "-I/usr/lib/jvm/Oracle-jdk1.8.0_371/include",
+      "-I/usr/lib/jvm/Oracle-jdk1.8.0_371/include/linux",
+      "-DNDEBUG",
+      "-o",
+      "build/.objs/j9mem2csv/linux/x86_64/release/src/main.hs.c.o",
+      "src/main.c"
+    ],
+    "file": "src/main.c"
+  }
+]
